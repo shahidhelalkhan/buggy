@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QA Issues Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f5;
+    --surface: #fff;
+    --text: #1a1a2e;
+    --text-secondary: #555;
+    --border: #e0e0e0;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --tag-bg: #e8f0fe;
+    --tag-text: #1a56db;
+    --open: #22c55e;
+    --closed: #ef4444;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --radius: 10px;
+    --transition: 0.2s ease;
+  }
+  .dark {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --text: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --border: #334155;
+    --tag-bg: #1e3a5f;
+    --tag-text: #60a5fa;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    transition: background var(--transition), color var(--transition);
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: blur(8px);
+    transition: background var(--transition), border var(--transition);
+  }
+  header .container {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo h1 { font-size: 20px; font-weight: 700; }
+  .logo span { color: var(--text-secondary); font-size: 13px; }
+  .badge {
+    background: var(--primary); color: #fff; font-size: 11px;
+    padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+  .header-actions { display: flex; align-items: center; gap: 12px; }
+  .repo-select {
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer;
+    transition: border var(--transition);
+  }
+  .repo-select:focus { outline: none; border-color: var(--primary); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; cursor: pointer; color: var(--text); font-size: 16px;
+    transition: border var(--transition);
+  }
+  .theme-toggle:hover { border-color: var(--primary); }
+
+  .controls {
+    padding: 20px 0; display: flex; gap: 12px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .search-box {
+    flex: 1; min-width: 200px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text); font-size: 14px;
+    transition: border var(--transition);
+  }
+  .search-box:focus { outline: none; border-color: var(--primary); }
+  .filter-btn {
+    padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text); cursor: pointer;
+    font-size: 13px; transition: all var(--transition);
+  }
+  .filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .filter-btn.active {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+  }
+  .refresh-btn {
+    padding: 8px 16px; border: none; border-radius: 8px;
+    background: var(--primary); color: #fff; cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    transition: background var(--transition);
+  }
+  .refresh-btn:hover { background: var(--primary-hover); }
+  .refresh-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .stats-bar {
+    display: flex; gap: 20px; padding: 0 0 16px 0; font-size: 13px;
+    color: var(--text-secondary); flex-wrap: wrap;
+  }
+  .stats-bar strong { color: var(--text); }
+
+  .issues-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 40px; }
+
+  .issue-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 20px;
+    box-shadow: var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border var(--transition), background var(--transition);
+    cursor: pointer;
+  }
+  .issue-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+  .issue-header {
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px;
+  }
+  .issue-state {
+    font-size: 18px; flex-shrink: 0; margin-top: 1px;
+  }
+  .issue-title {
+    font-size: 15px; font-weight: 600; line-height: 1.4;
+  }
+  .issue-meta {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12px; color: var(--text-secondary); flex-wrap: wrap;
+  }
+  .issue-meta a { color: var(--text-secondary); text-decoration: none; }
+  .issue-meta a:hover { color: var(--primary); text-decoration: underline; }
+  .issue-labels {
+    display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 4px;
+  }
+  .label-tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    font-weight: 500;
+  }
+  .issue-comments { display: flex; align-items: center; gap: 4px; }
+  .issue-body {
+    margin-top: 10px; font-size: 13px; color: var(--text-secondary);
+    line-height: 1.5; max-height: 60px; overflow: hidden;
+    position: relative;
+  }
+  .issue-body::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+    height: 24px;
+    background: linear-gradient(transparent, var(--surface));
+    transition: background var(--transition);
+  }
+
+  .loading {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 80px 20px; gap: 16px;
+    color: var(--text-secondary);
+  }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--border);
+    border-top-color: var(--primary); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: var(--text-secondary);
+  }
+  .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+  .error-state {
+    text-align: center; padding: 60px 20px; color: var(--text-secondary);
+  }
+  .error-state h3 { font-size: 18px; margin-bottom: 8px; color: #ef4444; }
+
+  .pagination {
+    display: flex; justify-content: center; align-items: center;
+    gap: 12px; padding: 20px 0 40px;
+  }
+  .page-btn {
+    padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text); cursor: pointer;
+    font-size: 13px; transition: all var(--transition);
+  }
+  .page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .page-info { font-size: 13px; color: var(--text-secondary); }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 12px; max-width: 720px;
+    width: 100%; max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    transition: background var(--transition);
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 20px 24px 0; gap: 16px;
+  }
+  .modal-header h2 {
+    font-size: 18px; line-height: 1.4; flex: 1;
+  }
+  .modal-close {
+    background: none; border: none; font-size: 24px; cursor: pointer;
+    color: var(--text-secondary); padding: 4px; flex-shrink: 0;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 16px 24px 24px; }
+  .modal-body .issue-meta { margin-bottom: 12px; }
+  .modal-body .issue-labels { margin-bottom: 12px; }
+  .modal-body .issue-body-preview {
+    background: var(--bg); padding: 16px; border-radius: 8px;
+    font-size: 14px; line-height: 1.6; max-height: 400px; overflow-y: auto;
+    transition: background var(--transition);
+  }
+  .modal-body .issue-body-preview h1, .modal-body .issue-body-preview h2,
+  .modal-body .issue-body-preview h3 { margin: 16px 0 8px; }
+  .modal-body .issue-body-preview p { margin-bottom: 8px; }
+  .modal-body .issue-body-preview code {
+    background: var(--surface); padding: 2px 6px; border-radius: 4px;
+    font-size: 13px;
+  }
+  .modal-body .issue-body-preview pre {
+    background: var(--surface); padding: 12px; border-radius: 6px;
+    overflow-x: auto; font-size: 13px; margin: 8px 0;
+  }
+  .modal-body .issue-body-preview a { color: var(--primary); }
+  .modal-link {
+    display: inline-block; margin-top: 12px; padding: 8px 16px;
+    background: var(--primary); color: #fff; text-decoration: none;
+    border-radius: 6px; font-size: 13px; font-weight: 600;
+  }
+  .modal-link:hover { background: var(--primary-hover); }
+
+  @media (max-width: 600px) {
+    header .container { flex-wrap: wrap; }
+    .logo span { display: none; }
+    .controls { flex-direction: column; }
+    .search-box { min-width: 100%; }
+    .modal { max-height: 90vh; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="logo">
+      <h1>QA Issues</h1>
+      <span>real issues from real projects</span>
+      <span class="badge">GitHub</span>
+    </div>
+    <div class="header-actions">
+      <select class="repo-select" id="repoSelect">
+        <option value="microsoft/playwright">microsoft/playwright</option>
+        <option value="cypress-io/cypress">cypress-io/cypress</option>
+        <option value="puppeteer/puppeteer">puppeteer/puppeteer</option>
+        <option value="SeleniumHQ/selenium">SeleniumHQ/selenium</option>
+        <option value="mochajs/mocha">mochajs/mocha</option>
+      </select>
+      <button class="theme-toggle" id="themeToggle" title="Toggle theme">&#9790;</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div class="controls">
+    <input class="search-box" id="searchBox" type="text" placeholder="Search issues by title, label, or body..." />
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="open">Open</button>
+    <button class="filter-btn" data-filter="closed">Closed</button>
+    <button class="refresh-btn" id="refreshBtn">Refresh</button>
+  </div>
+
+  <div class="stats-bar" id="statsBar"></div>
+
+  <div id="loadingState" class="loading" style="display:none;">
+    <div class="spinner"></div>
+    <p>Fetching real issues from GitHub...</p>
+  </div>
+
+  <div id="errorState" class="error-state" style="display:none;">
+    <h3>Failed to load issues</h3>
+    <p id="errorMessage">Something went wrong.</p>
+  </div>
+
+  <div id="emptyState" class="empty-state" style="display:none;">
+    <h3>No issues match your search</h3>
+    <p>Try adjusting your search or filter.</p>
+  </div>
+
+  <div class="issues-list" id="issuesList"></div>
+
+  <div class="pagination" id="pagination">
+    <button class="page-btn" id="prevPage" disabled>Previous</button>
+    <span class="page-info" id="pageInfo">Page 1</span>
+    <button class="page-btn" id="nextPage">Next</button>
+  </div>
+</main>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle"></h2>
+      <button class="modal-close" id="modalClose">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+const STATE = {
+  issues: [],
+  filtered: [],
+  page: 1,
+  perPage: 15,
+  filter: 'all',
+  search: '',
+  repo: 'microsoft/playwright',
+  loading: false,
+};
+
+const els = {
+  list: document.getElementById('issuesList'),
+  loading: document.getElementById('loadingState'),
+  error: document.getElementById('errorState'),
+  errorMsg: document.getElementById('errorMessage'),
+  empty: document.getElementById('emptyState'),
+  stats: document.getElementById('statsBar'),
+  search: document.getElementById('searchBox'),
+  refresh: document.getElementById('refreshBtn'),
+  repo: document.getElementById('repoSelect'),
+  prev: document.getElementById('prevPage'),
+  next: document.getElementById('nextPage'),
+  pageInfo: document.getElementById('pageInfo'),
+  themeToggle: document.getElementById('themeToggle'),
+  modalOverlay: document.getElementById('modalOverlay'),
+  modalTitle: document.getElementById('modalTitle'),
+  modalBody: document.getElementById('modalBody'),
+  modalClose: document.getElementById('modalClose'),
+  filterBtns: document.querySelectorAll('.filter-btn'),
+};
+
+function getTheme() {
+  return localStorage.getItem('qa-theme') || 'light';
+}
+
+function setTheme(theme) {
+  document.body.classList.toggle('dark', theme === 'dark');
+  localStorage.setItem('qa-theme', theme);
+}
+
+setTheme(getTheme());
+
+els.themeToggle.addEventListener('click', () => {
+  setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+});
+
+els.repo.addEventListener('change', () => {
+  STATE.repo = els.repo.value;
+  STATE.page = 1;
+  fetchIssues();
+});
+
+els.search.addEventListener('input', (e) => {
+  STATE.search = e.target.value.toLowerCase();
+  STATE.page = 1;
+  filterAndRender();
+});
+
+els.filterBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    els.filterBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    STATE.filter = btn.dataset.filter;
+    STATE.page = 1;
+    filterAndRender();
+  });
+});
+
+els.refresh.addEventListener('click', () => fetchIssues());
+
+els.prev.addEventListener('click', () => {
+  if (STATE.page > 1) { STATE.page--; renderPage(); }
+});
+
+els.next.addEventListener('click', () => {
+  const totalPages = Math.ceil(STATE.filtered.length / STATE.perPage);
+  if (STATE.page < totalPages) { STATE.page++; renderPage(); }
+});
+
+els.modalClose.addEventListener('click', closeModal);
+els.modalOverlay.addEventListener('click', (e) => {
+  if (e.target === els.modalOverlay) closeModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+function closeModal() {
+  els.modalOverlay.classList.remove('open');
+}
+
+function showModal(issue) {
+  const stateIcon = issue.state === 'open' ? '&#9679;' : '&#10005;';
+  const stateColor = issue.state === 'open' ? 'var(--open)' : 'var(--closed)';
+  const labels = (issue.labels || [])
+    .filter(l => typeof l === 'object')
+    .map(l => `<span class="label-tag" style="background:${l.color ? '#'+l.color : '#888'}33; color:${l.color ? '#'+l.color : '#888'}">${esc(l.name)}</span>`)
+    .join('');
+
+  els.modalTitle.innerHTML = `${esc(issue.title)} <span style="font-size:13px;font-weight:400;color:${stateColor}">#${issue.number}</span>`;
+  els.modalBody.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--text-secondary);margin-bottom:12px;">
+      <span style="color:${stateColor}">${stateIcon} ${issue.state}</span>
+      <span><a href="${esc(issue.user?.html_url||'#')}" style="color:var(--text-secondary)">${esc(issue.user?.login||'unknown')}</a></span>
+      <span>opened on ${new Date(issue.created_at).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</span>
+      <span class="issue-comments">&#128172; ${issue.comments}</span>
+    </div>
+    ${labels ? `<div class="issue-labels">${labels}</div>` : ''}
+    <div class="issue-body-preview">${renderMarkdown(issue.body || '*No description provided.*')}</div>
+    <a class="modal-link" href="${esc(issue.html_url)}" target="_blank" rel="noopener">View on GitHub &#8599;</a>
+  `;
+  els.modalOverlay.classList.add('open');
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function renderMarkdown(body) {
+  return esc(body)
+    .replace(/### (.+)/g, '<h3>$1</h3>')
+    .replace(/## (.+)/g, '<h2>$1</h2>')
+    .replace(/# (.+)/g, '<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+    .replace(/- (.+)/g, '<li>$1</li>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+}
+
+async function fetchIssues() {
+  STATE.loading = true;
+  setLoading(true);
+  hideError();
+  els.list.innerHTML = '';
+
+  const url = `https://api.github.com/repos/${STATE.repo}/issues?state=all&per_page=100&sort=created&direction=desc`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`GitHub API responded with ${res.status}${res.status === 403 ? ' (rate limited)' : ''}`);
+    const data = await res.json();
+    STATE.issues = data.filter(i => !i.pull_request);
+    filterAndRender();
+  } catch (err) {
+    showError(err.message);
+    STATE.issues = [];
+    renderPage();
+  } finally {
+    STATE.loading = false;
+    setLoading(false);
+  }
+}
+
+function filterAndRender() {
+  let list = STATE.issues;
+
+  if (STATE.filter === 'open') list = list.filter(i => i.state === 'open');
+  else if (STATE.filter === 'closed') list = list.filter(i => i.state === 'closed');
+
+  if (STATE.search) {
+    const q = STATE.search;
+    list = list.filter(i =>
+      i.title.toLowerCase().includes(q) ||
+      (i.body && i.body.toLowerCase().includes(q)) ||
+      (i.labels || []).some(l => typeof l === 'object' && l.name && l.name.toLowerCase().includes(q))
+    );
+  }
+
+  STATE.filtered = list;
+  STATE.page = 1;
+  renderPage();
+  updateStats();
+}
+
+function renderPage() {
+  const totalPages = Math.ceil(STATE.filtered.length / STATE.perPage) || 1;
+  if (STATE.page > totalPages) STATE.page = totalPages;
+
+  const start = (STATE.page - 1) * STATE.perPage;
+  const pageItems = STATE.filtered.slice(start, start + STATE.perPage);
+
+  els.prev.disabled = STATE.page <= 1;
+  els.next.disabled = STATE.page >= totalPages;
+  els.pageInfo.textContent = `Page ${STATE.page} of ${totalPages}`;
+
+  if (STATE.filtered.length === 0 && !STATE.loading) {
+    els.empty.style.display = 'block';
+    els.list.innerHTML = '';
+    els.pagination.style.display = 'none';
+    return;
+  }
+  els.empty.style.display = 'none';
+  els.pagination.style.display = 'flex';
+
+  els.list.innerHTML = pageItems.map(issue => {
+    const stateIcon = issue.state === 'open' ? '&#9679;' : '&#10005;';
+    const stateColor = issue.state === 'open' ? 'var(--open)' : 'var(--closed)';
+    const labels = (issue.labels || [])
+      .filter(l => typeof l === 'object')
+      .map(l => `<span class="label-tag" style="background:${l.color ? '#'+l.color : '#888'}33; color:${l.color ? '#'+l.color : '#888'}">${esc(l.name)}</span>`)
+      .join('');
+    const bodyPreview = (issue.body || '').slice(0, 200);
+
+    return `
+      <div class="issue-card" data-id="${issue.id}">
+        <div class="issue-header">
+          <span class="issue-state" style="color:${stateColor}">${stateIcon}</span>
+          <div style="flex:1">
+            <div class="issue-title">${esc(issue.title)}</div>
+            <div class="issue-meta">
+              <span>#${issue.number}</span>
+              <span style="color:${stateColor}">${issue.state}</span>
+              <span><a href="${esc(issue.user?.html_url||'#')}">${esc(issue.user?.login||'unknown')}</a></span>
+              <span>${new Date(issue.created_at).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</span>
+              <span class="issue-comments">&#128172; ${issue.comments}</span>
+            </div>
+            ${labels ? `<div class="issue-labels">${labels}</div>` : ''}
+            ${bodyPreview ? `<div class="issue-body">${esc(bodyPreview)}</div>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.issue-card').forEach(card => {
+    const id = parseInt(card.dataset.id);
+    const issue = STATE.filtered.find(i => i.id === id);
+    if (issue) card.addEventListener('click', () => showModal(issue));
+  });
+}
+
+function updateStats() {
+  const total = STATE.issues.length;
+  const open = STATE.issues.filter(i => i.state === 'open').length;
+  const closed = STATE.issues.filter(i => i.state === 'closed').length;
+  const shown = STATE.filtered.length;
+  els.stats.innerHTML = `
+    <span><strong>${shown}</strong> issue${shown !== 1 ? 's' : ''} shown</span>
+    <span><strong style="color:var(--open)">${open}</strong> open</span>
+    <span><strong style="color:var(--closed)">${closed}</strong> closed</span>
+    <span><strong>${total}</strong> total fetched</span>
+    <span style="font-size:11px;opacity:0.7">repo: ${STATE.repo}</span>
+  `;
+}
+
+function setLoading(v) {
+  els.loading.style.display = v ? 'flex' : 'none';
+  els.refresh.disabled = v;
+}
+
+function showError(msg) {
+  els.error.style.display = 'block';
+  els.errorMsg.textContent = msg;
+}
+
+function hideError() {
+  els.error.style.display = 'none';
+}
+
+fetchIssues();
+</script>
+</body>
+</html>
